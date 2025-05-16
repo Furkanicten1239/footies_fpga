@@ -1,54 +1,115 @@
-#include "Vfighting_game_vga.h"
-#include "verilated.h"
-#include <iostream>
+// Verilator + SDL Simulation for Fighting Game
+#include <stdio.h>
+#include <SDL.h>
+#include <verilated.h>
+#include "Vtop_game.h"
 
-vluint64_t main_time = 0; // global simulation time
+// VGA resolution
+const int H_RES = 640;
+const int V_RES = 480;
 
-double sc_time_stamp() { return main_time; }
+// SDL pixel format
+typedef struct Pixel {
+    uint8_t a;  // alpha
+    uint8_t b;  // blue
+    uint8_t g;  // green
+    uint8_t r;  // red
+} Pixel;
 
-int main(int argc, char** argv, char** env) {
+int main(int argc, char* argv[]) {
     Verilated::commandArgs(argc, argv);
-    Vfighting_game_vga* top = new Vfighting_game_vga;
 
-    // Başlangıç değerleri
-    top->CLOCK_50 = 0;
-    top->SW = 0b0000000000;   // reset = aktif (SW[0] = 0)
-    top->KEY = 0b1111;        // tüm tuşlar serbest
-
-    // 10 cycle reset tut
-    for (int i = 0; i < 20; i++) {
-        top->CLOCK_50 ^= 1;
-        top->eval();
-        main_time++;
+    if (SDL_Init(SDL_INIT_VIDEO) < 0) {
+        printf("SDL init failed: %s\n", SDL_GetError());
+        return 1;
     }
 
-    top->SW = 0b0000000001; // reset = pasif
+    Pixel screenbuffer[H_RES * V_RES];
 
-    // FSM test döngüsü (clock ilerletme)
-    for (int t = 0; t < 5000; t++) {
-        // Clock toggle
-        top->CLOCK_50 ^= 1;
-        top->eval();
-        main_time++;
+    SDL_Window* window = SDL_CreateWindow("Fighting Game VGA",
+        SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, H_RES, V_RES, SDL_WINDOW_SHOWN);
+    if (!window) {
+        printf("Window creation failed: %s\n", SDL_GetError());
+        return 1;
+    }
 
-        // Her 2 cycle’da bir FSM clock ilerler (yaklaşık 60Hz)
-        if (main_time % 100 == 0) {
-            std::cout << "[Time " << main_time << "] ";
-            std::cout << "State: " << (int)top->HEX0 << ", ";
-            std::cout << "Health1: " << (int)top->HEX1 << ", ";
-            std::cout << "Health2: " << (int)top->HEX2 << ", ";
-            std::cout << "GameOver1: " << top->LEDR & 0x01 << ", ";
-            std::cout << "GameOver2: " << (top->LEDR >> 1) & 0x01 << std::endl;
+    SDL_Renderer* renderer = SDL_CreateRenderer(window, -1,
+        SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+    if (!renderer) {
+        printf("Renderer creation failed: %s\n", SDL_GetError());
+        return 1;
+    }
+
+    SDL_Texture* texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888,
+        SDL_TEXTUREACCESS_TARGET, H_RES, V_RES);
+    if (!texture) {
+        printf("Texture creation failed: %s\n", SDL_GetError());
+        return 1;
+    }
+
+    const Uint8* keyb_state = SDL_GetKeyboardState(NULL);
+    printf("Simulation running. Press 'Q' in window to quit.\n");
+
+    Vtop_game* top = new Vtop_game;
+
+    // Reset sequence
+    top->sim_rst = 1;
+    top->clk_pix = 0; top->eval();
+    top->clk_pix = 1; top->eval();
+    top->sim_rst = 0;
+    top->clk_pix = 0; top->eval();
+
+    uint64_t frame_count = 0;
+    uint64_t start_ticks = SDL_GetPerformanceCounter();
+
+    while (1) {
+        // Clock step
+        top->clk_pix = 1; top->eval();
+        top->clk_pix = 0; top->eval();
+
+        // Store pixel if draw enable is active
+        if (top->sdl_de) {
+            int x = top->sdl_sx;
+            int y = top->sdl_sy;
+            if (x < H_RES && y < V_RES) {
+                Pixel* p = &screenbuffer[y * H_RES + x];
+                p->a = 0xFF;
+                p->r = top->sdl_r;
+                p->g = top->sdl_g;
+                p->b = top->sdl_b;
+            }
         }
 
-        // Örnek senaryo: KEY[0] basılı (saldırı tuşu)
-        if (main_time > 100 && main_time < 200)
-            top->KEY = 0b1110; // KEY[0] = 0 (aktif low)
-        else
-            top->KEY = 0b1111;
+        // Sync at end of frame
+        if (top->sdl_sy == V_RES && top->sdl_sx == 0) {
+            SDL_Event e;
+            if (SDL_PollEvent(&e) && e.type == SDL_QUIT) break;
+            if (keyb_state[SDL_SCANCODE_Q]) break;
+
+            // Update inputs from keyboard
+            top->btn_up   = keyb_state[SDL_SCANCODE_UP];
+            top->btn_dn   = keyb_state[SDL_SCANCODE_DOWN];
+            top->btn_fire = keyb_state[SDL_SCANCODE_SPACE];
+
+            // Render frame
+            SDL_UpdateTexture(texture, NULL, screenbuffer, H_RES * sizeof(Pixel));
+            SDL_RenderClear(renderer);
+            SDL_RenderCopy(renderer, texture, NULL, NULL);
+            SDL_RenderPresent(renderer);
+            frame_count++;
+        }
     }
 
+    uint64_t end_ticks = SDL_GetPerformanceCounter();
+    double duration = (double)(end_ticks - start_ticks) / SDL_GetPerformanceFrequency();
+    double fps = (double)frame_count / duration;
+    printf("Frames per second: %.1f\n", fps);
+
+    // Clean up
     top->final();
-    delete top;
+    SDL_DestroyTexture(texture);
+    SDL_DestroyRenderer(renderer);
+    SDL_DestroyWindow(window);
+    SDL_Quit();
     return 0;
 }
