@@ -153,6 +153,6 @@ module fighting_game_vga(
     assign HEX4 = 7'b1111111;
     assign HEX5 = 7'b1111111;
 
-    assign LEDR = {7'b0, game_over2, game_over1};
+    assign LEDR = {8'b0, game_over2, game_over1};
 
 endmodule
