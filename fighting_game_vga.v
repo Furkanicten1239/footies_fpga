@@ -145,7 +145,7 @@ module fighting_game_vga(
     );
 
     //================ 7-SEGMENT DISPLAY ===============
-    hex_decoder state_disp   (.in(char1_state), .out(HEX0));
+    hex_decoder state_disp   (.in({1'b0, char1_state}), .out(HEX0));
     hex_decoder health1_disp (.in({2'b00, health1}), .out(HEX1));
     hex_decoder health2_disp (.in({2'b00, health2}), .out(HEX2));
 
