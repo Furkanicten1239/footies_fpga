@@ -67,18 +67,17 @@ int main(int argc, char* argv[]) {
         top->clk_pix = 1; top->eval();
         top->clk_pix = 0; top->eval();
 
-        // Store pixel if draw enable is active
-        if (top->sdl_de) {
-            int x = top->sdl_sx;
-            int y = top->sdl_sy;
-            if (x < H_RES && y < V_RES) {
-                Pixel* p = &screenbuffer[y * H_RES + x];
-                p->a = 0xFF;
-                p->r = top->sdl_r;
-                p->g = top->sdl_g;
-                p->b = top->sdl_b;
-            }
-        }
+// FORCE GREEN RECTANGLE CENTER OF SCREEN (just to test rendering path)
+for (int y = 200; y < 280; y++) {
+    for (int x = 270; x < 370; x++) {
+        Pixel* p = &screenbuffer[y * H_RES + x];
+        p->a = 0xFF;
+        p->r = 0;
+        p->g = 255;
+        p->b = 0;
+    }
+}
+
 
         // Sync at end of frame
         if (top->sdl_sy == V_RES && top->sdl_sx == 0) {
