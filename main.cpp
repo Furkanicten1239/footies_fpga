@@ -64,6 +64,11 @@ int main(int argc, char* argv[]) {
             p->g = top->sdl_g;
             p->b = top->sdl_b;
         }
+        if (top->sdl_de) {
+    printf("DRAW at (%d, %d) Color = (%d, %d, %d)\n",
+           top->sdl_sx, top->sdl_sy,
+           top->sdl_r, top->sdl_g, top->sdl_b);
+}
 
         SDL_UpdateTexture(texture, NULL, screenbuffer, H_RES * sizeof(Pixel));
         SDL_RenderClear(renderer);
