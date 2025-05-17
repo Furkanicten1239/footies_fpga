@@ -55,20 +55,19 @@ int main(int argc, char* argv[]) {
         memset(screenbuffer, 0, sizeof(screenbuffer));
 
         // Draw the pixel if enabled
-        int x = top->sdl_sx;
-        int y = top->sdl_sy;
-        if (top->sdl_de && x < H_RES && y < V_RES) {
-            Pixel* p = &screenbuffer[y * H_RES + x];
-            p->a = 0xFF;
-            p->r = top->sdl_r;
-            p->g = top->sdl_g;
-            p->b = top->sdl_b;
-        }
-        if (top->sdl_de) {
+int x = top->sdl_sx;
+int y = top->sdl_sy;
+if (top->sdl_de && x < H_RES && y < V_RES) {
     printf("DRAW at (%d, %d) Color = (%d, %d, %d)\n",
-           top->sdl_sx, top->sdl_sy,
-           top->sdl_r, top->sdl_g, top->sdl_b);
+           x, y, top->sdl_r, top->sdl_g, top->sdl_b);
+
+    Pixel* p = &screenbuffer[y * H_RES + x];
+    p->a = 0xFF;
+    p->r = top->sdl_r;
+    p->g = top->sdl_g;
+    p->b = top->sdl_b;
 }
+
 
         SDL_UpdateTexture(texture, NULL, screenbuffer, H_RES * sizeof(Pixel));
         SDL_RenderClear(renderer);
