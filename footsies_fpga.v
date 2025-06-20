@@ -98,6 +98,10 @@ module footsies_fpga(
     wire [9:0] pixel_x, pixel_y;
     wire [7:0] color_in;
     wire clk_game;
+	 wire [3:0] state_1;
+	 wire [3:0] state_2;
+	 wire [9:0] char1;
+	 wire [9:0] char2;
 
     //////////////////////////////////////////////////////////////////////////
     // Clock Divider & Selector (60Hz or manual step)
@@ -112,16 +116,28 @@ module footsies_fpga(
     //////////////////////////////////////////////////////////////////////////
     // Game Logic
     //////////////////////////////////////////////////////////////////////////
-    game_design game (
+    fsm_logic_singleplayer game (
         .clk_game(clk_game),
         .reset(~SW[0]),                   //RESET THE GAME
-        .pixel_x(pixel_x),
-        .pixel_y(pixel_y),
-        .left_button(~KEY[3]),             //move left
-        .right_button(~KEY[2]),            //move right
-        .color_out(color_in),
-		  .attack_button(~KEY[0])
+        .left_button1(~KEY[3]),             //move left
+        .right_button1(~KEY[2]),            //move right
+		  .attack_button1(~KEY[0]),
+		  .state_p1(state_1),
+		  .state_p2(state_2),
+		  .char1_x(char1),
+		  .char2_x(char2)
     );
+	 
+	 pixel_art_singleplayer pixel_art_random(
+			.clk_game(clk_game),
+			.reset(~SW[0]), 
+			.pixel_x(pixel_x),
+			.pixel_y(pixel_y),
+			.color_out(color_in),
+			.left1(~KEY[3]),
+			.right1(~KEY[2]),
+			.attack1(~KEY[0])
+	 );
 	 
 	 divide_clock clk_div_inst (
     .clk_50mhz(CLOCK_50),
