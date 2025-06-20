@@ -1,9 +1,14 @@
+//hurtbox hitbox çarpışma mantığı eksik, health bar block bar eksik, block logic eksik.
+
 module pixel_art_singleplayer (
     input wire clk_game,
     input wire reset,
     input wire [9:0] pixel_x,
     input wire [9:0] pixel_y,
-    output reg [7:0] color_out
+    output reg [7:0] color_out,
+	 input wire left1,
+    input wire right1,
+    input wire attack1
 );
 
     // Parameters for players
@@ -29,6 +34,7 @@ module pixel_art_singleplayer (
     reg [9:0] player1_y = GROUND_Y - CHAR_HEIGHT;
     wire [9:0] player2_x;
     reg [9:0] player2_y = GROUND_Y - CHAR_HEIGHT;
+	 
 
     // Sprite ROMs (declared elsewhere)
     wire [127:0] p1_idle_row, p1_attack_row, p1_left_row, p1_right_row;
@@ -84,7 +90,19 @@ fsm_logic_singleplayer logic_inst (
         endcase
     end
 	 
-	 
+	 		  
+		  		  //Definition of hurtbox borders
+		   wire is_hurtbox_p1 = (state_p1 == 4'b0100 || state_p1 == 4'b0111);  // ATTACK_1_ACTIVE or ATTACK_2_ACTIVE
+
+			wire is_on_hurtbox_border_p1 =
+				((sprite_x1 == HURTBOX_X1 || sprite_x1 == HURTBOX_X2 - 1) && (sprite_y1 >= HURTBOX_Y1 && sprite_y1 < HURTBOX_Y2)) ||
+				((sprite_y1 == HURTBOX_Y1 || sprite_y1 == HURTBOX_Y2 - 1) && (sprite_x1 >= HURTBOX_X1 && sprite_x1 < HURTBOX_X2));
+			
+			wire is_on_hitbox_border_p1 =
+				((sprite_x1 == HITBOX_X1 || sprite_x1 == HITBOX_X2 - 1) && (sprite_y1 >= HITBOX_Y1 && sprite_y1 < HITBOX_Y2)) ||
+				((sprite_y1 == HITBOX_Y1 || sprite_y1 == HITBOX_Y2 - 1) && (sprite_x1 >= HITBOX_X1 && sprite_x1 < HITBOX_X2));
+				
+			
 
     // Player 2 sprite selection (simplified)
     always @(*) begin
@@ -100,45 +118,45 @@ fsm_logic_singleplayer logic_inst (
             4'b1000: sprite_row_p2 = p2_attack_row;   // ATTACK_2 states
             default: sprite_row_p2 = p2_idle_row;
         endcase
-		  
-		  
-		  		  //Definition of hurtbox borders
-		   wire is_hurtbox_p1 = (state_p1 == 4'b0100 || state_p1 == 4'b0111);  // ATTACK_1_ACTIVE or ATTACK_2_ACTIVE
-
-			wire is_on_hurtbox_border_p1 =
-				((sprite_x1 == HURTBOX_X1 || sprite_x1 == HURTBOX_X2 - 1) && (sprite_y1 >= HURTBOX_Y1 && sprite_y1 < HURTBOX_Y2)) ||
-				((sprite_y1 == HURTBOX_Y1 || sprite_y1 == HURTBOX_Y2 - 1) && (sprite_x1 >= HURTBOX_X1 && sprite_x1 < HURTBOX_X2));
-			
-			wire is_on_hitbox_border_p1 =
-				((sprite_x1 == HITBOX_X1 || sprite_x1 == HITBOX_X2 - 1) && (sprite_y1 >= HITBOX_Y1 && sprite_y1 < HITBOX_Y2)) ||
-				((sprite_y1 == HITBOX_Y1 || sprite_y1 == HITBOX_Y2 - 1) && (sprite_x1 >= HITBOX_X1 && sprite_x1 < HITBOX_X2));
-			
     end
 
 	 
 	 
 	 
     // Display logic
-    always @(*) begin
-		if (pixel_x >= player1_x && pixel_x < player1_x + CHAR_WIDTH &&
-			pixel_y >= player1_y && pixel_y < player1_y + CHAR_HEIGHT) begin
-		
-			if (is_hurtbox_p1 && is_on_hurtbox_border_p1) begin
-				color_out = 8'b111_111_00;  // Yellow: hurtbox outline
-		
-			end else if (is_hurtbox_p1 && is_on_hitbox_border_p1) begin
-				color_out = 8'b111_000_00;  // Red: hitbox outline
-		
-			end else if (sprite_row_p1[sprite_x1]) begin
-				color_out = 8'b000_000_00;  // Normal character fill
-		
-			end else begin
-				// Transparent part of character box
-				if (pixel_y >= GROUND_Y)
-						color_out = (pixel_x[5]) ? 8'b000_111_00 : 8'b000_011_00;
-				else
-						color_out = 8'b111_111_11;
-			end
-		
-	end
+// Replace your display logic with this version that handles overlapping characters
+    // Check if pixel is within Player 1's area
+    wire p1_in_area = (pixel_x >= player1_x && pixel_x < player1_x + CHAR_WIDTH &&
+                       pixel_y >= player1_y && pixel_y < player1_y + CHAR_HEIGHT);
+    
+    // Check if pixel is within Player 2's area  
+    wire p2_in_area = (pixel_x >= player2_x && pixel_x < player2_x + CHAR_WIDTH &&
+                       pixel_y >= player2_y && pixel_y < player2_y + CHAR_HEIGHT);
+    
+    // Check if pixels are active for each character
+    wire p1_pixel_active = p1_in_area && sprite_row_p1[sprite_x1];
+    wire p2_pixel_active = p2_in_area && sprite_row_p2[sprite_x2];
+    
+    // Check for hitbox/hurtbox borders for Player 1
+    wire p1_hurtbox_border = p1_in_area && is_on_hurtbox_border_p1;
+    wire p1_hitbox_border = p1_in_area && is_hurtbox_p1 && is_on_hitbox_border_p1;
+    
+always @(*) begin
+
+    // Determine final color based on priority
+    if (p1_hurtbox_border) begin
+        color_out = 8'b111_111_00;  // Yellow hurtbox (highest priority)
+    end else if (p1_hitbox_border) begin
+        color_out = 8'b111_000_00;  // Red hitbox
+    end else if (p1_pixel_active) begin
+        color_out = 8'b000_000_00;  // Player 1 color (black)
+    end else if (p2_pixel_active) begin
+        color_out = 8'b111_000_00;  // Player 2 color (red)
+    end else if (pixel_y >= GROUND_Y) begin
+        color_out = (pixel_x[5]) ? 8'b000_111_00 : 8'b000_011_00;  // Ground
+    end else begin
+        color_out = 8'b111_111_11;  // Background (white)
+    end
+end
+
 endmodule
